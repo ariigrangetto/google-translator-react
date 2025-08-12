@@ -196,6 +196,7 @@ select {
 #outputText {
   flex: 1;
   padding: 24px;
+  resize: none;
   font-size: 18px;
   color: var(--text-primary);
   background-color: var(--bg-secondary);
