@@ -24,9 +24,9 @@ function App() {
   let [sourceLanguage, setSourceLanguage] = useState(DEFAULT_SOURCE_LANGUAGE);
   let [targetLanguage, setTargetLanguage] = useState(DEFAULT_TARGET_LANGUAGE);
 
-  const detectLanguage = useDetectLanguage();
+  const { detectLanguage } = useDetectLanguage();
 
-  const translate = useTraduccion({
+  const { translate } = useTraduccion({
     setOutput,
     sourceLanguage,
     detectLanguage,
