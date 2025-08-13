@@ -194,6 +194,7 @@ select {
 
 #outputText {
   flex: 1;
+  border: 0;
   padding: 24px;
   resize: none;
   font-size: 18px;
