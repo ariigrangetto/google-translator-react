@@ -117,9 +117,9 @@ function App() {
           targetLanguage: target,
 
           monitor: (monitor) => {
-            monitor.addEventListener("downloadprogress", (e) => {
+            monitor.addEventListener("downloadprogress", () => {
               console.log("descargando...");
-              setOutput(`Descargando el modelo ${Math.floor(e.loaded * 100)}`);
+              setOutput(`Descargando el modelo`);
             });
           },
         });
@@ -212,6 +212,60 @@ function App() {
     swapLanguages();
   };
 
+  function getFullLanguageCode(languageCode) {
+    return FULL_LANGUAGES_CODES[languageCode] ?? DEFAULT_SOURCE_LANGUAGE;
+  }
+
+  const micButtonRef = useRef(null);
+
+  async function startVoiceRecognition() {
+    const hasNativeRecognitionSupport =
+      "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
+
+    if (!hasNativeRecognitionSupport) return;
+
+    const recognition = new (SpeechRecognition || webkitSpeechRecognition)();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    const language =
+      sourceLanguage === "auto" ? await detectLanguage(input) : sourceLanguage;
+
+    recognition.lang = getFullLanguageCode(language);
+
+    recognition.onaudiostart = () => {
+      console.log("working");
+      micButtonRef.current.style.backgroundColor = "var(--google-red)";
+      micButtonRef.current.style.color = "white";
+    };
+
+    recognition.onaudioend = () => {
+      micButtonRef.current.style.backgroundColor = "";
+      micButtonRef.current.style.color = "";
+    };
+
+    recognition.onresult = (event) => {
+      console.log(event.results);
+      const [{ transcript }] = event.results[0];
+      setInput(transcript);
+      translate(transcript, sourceLanguage, targetLanguage);
+    };
+
+    recognition.onnomatch = () => {
+      console.error("Speech not recognized");
+    };
+
+    recognition.onerror = (event) => {
+      console.log("Error de reconocimiento de voz", event.error);
+    };
+
+    recognition.start();
+  }
+
+  function handleCopyButton() {}
+
+  function speakRecognition() {}
   return (
     <>
       <div className='container'>
@@ -281,14 +335,19 @@ function App() {
             <div className='textarea-container'>
               <textarea
                 id='inputText'
-                placeholder='Introduce el texto'
+                placeholder='Escribe o habla'
                 maxLength='5000'
                 value={input}
                 onChange={handleChangeInput}
               ></textarea>
             </div>
             <footer className='input-controls'>
-              <button className='icon-button mic-button' id='micButton'>
+              <button
+                className='icon-button mic-button'
+                id='micButton'
+                onClick={startVoiceRecognition}
+                ref={micButtonRef}
+              >
                 <span className='material-symbols-outlined'>
                   <MicIcon />
                 </span>
@@ -309,11 +368,16 @@ function App() {
                 readOnly
                 id='outputText'
                 value={output}
+                placeholder='Traducción '
                 onChange={(e) => setOutput(e.target.value)}
               ></textarea>
 
               <footer className='output-controls'>
-                <button className='icon-button copy-button' id='copyButton'>
+                <button
+                  className='icon-button copy-button'
+                  id='copyButton'
+                  onClick={handleCopyButton}
+                >
                   <span className='material-symbols-outlined'>
                     <ContentCopyIcon />
                   </span>
@@ -323,6 +387,7 @@ function App() {
                 <button
                   className='icon-button speaker-button'
                   id='speakerButton'
+                  onClick={speakRecognition}
                 >
                   <span className='material-symbols-outlined'>
                     <VolumeUpIcon />
