@@ -190,6 +190,7 @@ function App() {
 
   const handleChangeInput = (e) => {
     const newText = e.target.value;
+    if (newText.length === 51) return;
     setInput(newText);
     debounceTranslate(newText, sourceLanguage, targetLanguage);
   };
@@ -292,8 +293,12 @@ function App() {
                   <MicIcon />
                 </span>
               </button>
-              <p className='length-limit' id='length-limit'>
-                <span id='length'>0</span> / 50
+              <p
+                className='length-limit'
+                id='length-limit'
+                style={{ color: input.length >= 50 ? "red" : "black" }}
+              >
+                <span id='length'>{input.length}</span> / 50
               </p>
             </footer>
           </section>
