@@ -5,6 +5,15 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import MicIcon from "@mui/icons-material/Mic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import useVoiceRecognition from "./hooks/useVoiceRecognition";
+import useTraduccion from "./hooks/useTraduccion";
+import {
+  DEFAULT_SOURCE_LANGUAGE,
+  DEFAULT_TARGET_LANGUAGE,
+  FULL_LANGUAGES_CODES,
+} from "./constanst";
+import useSpeakRecognition from "./hooks/useSpeakRecognition";
+import useDetectLanguage from "./hooks/useDetectLanguage";
 
 function App() {
   console.log("render del componente");
@@ -12,40 +21,34 @@ function App() {
   const [output, setOutput] = useState("");
   const [copyText, setCopyText] = useState("");
 
-  const DEFAULT_SOURCE_LANGUAGE = "es";
-  const DEFAULT_TARGET_LANGUAGE = "en";
-
   let [sourceLanguage, setSourceLanguage] = useState(DEFAULT_SOURCE_LANGUAGE);
   let [targetLanguage, setTargetLanguage] = useState(DEFAULT_TARGET_LANGUAGE);
 
-  const SUPPORTED_LANGUAGES = [
-    "en",
-    "es",
-    "fr",
-    "de",
-    "it",
-    "pt",
-    "ru",
-    "ja",
-    "zh",
-  ];
+  const detectLanguage = useDetectLanguage();
 
-  const FULL_LANGUAGES_CODES = {
-    es: "es-ES",
-    en: "en-US",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-PT",
-    ru: "ru-RU",
-    ja: "ja-JP",
-    zh: "zh-CN",
-  };
+  const translate = useTraduccion({
+    setOutput,
+    sourceLanguage,
+    detectLanguage,
+    targetLanguage,
+    input,
+  });
 
-  const currentTranslator = useRef(null);
-  const currentDetector = useRef(null);
+  const { startVoiceRecognition, micButtonRef } = useVoiceRecognition({
+    translate,
+    detectLanguage,
+    input,
+    sourceLanguage,
+    getFullLanguageCode,
+    targetLanguage,
+    setInput,
+  });
 
-  const currentTranslatorKey = useRef(null);
+  const { speakRecognition, speakerBtn } = useSpeakRecognition({
+    output,
+    getFullLanguageCode,
+    targetLanguage,
+  });
 
   const checkApiSupport = () => {
     let hasNativeTranlator = "Translator" in window;
@@ -63,102 +66,6 @@ function App() {
   useEffect(() => {
     checkApiSupport();
   }, []);
-
-  async function detectLanguage(text) {
-    try {
-      if (!currentDetector.current) {
-        currentDetector.current = await window.LanguageDetector.create({
-          expectedInputLanguages: SUPPORTED_LANGUAGES,
-        });
-      }
-      const results = await currentDetector.current.detect(text);
-
-      const detectedLanguage = results[0]?.detectedLanguage;
-
-      return detectedLanguage === "und"
-        ? DEFAULT_SOURCE_LANGUAGE
-        : detectedLanguage;
-    } catch (error) {
-      console.error("No he podido averiguar el idioma", error);
-      return DEFAULT_SOURCE_LANGUAGE;
-    }
-  }
-
-  async function getTranslation(text, source, target) {
-    const sourceLanguageDetect =
-      source === "auto" ? await detectLanguage(text) : source;
-
-    console.log(target);
-
-    if (sourceLanguageDetect === target) return text;
-
-    try {
-      const status = await window.Translator.availability({
-        sourceLanguage: source,
-        targetLanguage: target,
-      });
-
-      if (status === "unavailable") {
-        throw new Error(`Traducción de ${source} a ${target} no disponible`);
-      }
-    } catch (error) {
-      console.error(error);
-      throw new Error(`Traducción de ${source} a ${target} no disponible`);
-    }
-
-    const translatorKey = `${source} - ${target}`;
-    console.log(translatorKey);
-    try {
-      if (
-        !currentTranslator.current ||
-        currentTranslatorKey.current !== translatorKey
-      ) {
-        currentTranslator.current = await window.Translator.create({
-          sourceLanguage: source,
-          targetLanguage: target,
-
-          monitor: (monitor) => {
-            monitor.addEventListener("downloadprogress", () => {
-              console.log("descargando...");
-              setOutput(`Descargando el modelo`);
-            });
-          },
-        });
-      }
-
-      currentTranslatorKey.current = translatorKey;
-
-      const translation = await currentTranslator.current.translate(text);
-      return translation;
-    } catch (e) {
-      console.error(e);
-      return "Error al traducir";
-    }
-  }
-
-  const translate = useCallback(
-    async (text, source, target) => {
-      if (!text) {
-        setOutput("");
-        return;
-      }
-      setOutput("Traduciendo...");
-
-      let sourceToUse = source;
-      if (sourceLanguage === "auto") {
-        sourceToUse = await detectLanguage(text);
-      }
-
-      try {
-        const translation = await getTranslation(text, sourceToUse, target);
-        setOutput(translation);
-      } catch (error) {
-        console.error(error);
-        setOutput("Error al traducir");
-      }
-    },
-    [sourceLanguage, targetLanguage, input]
-  );
 
   async function swapLanguages() {
     if (sourceLanguage === "auto") {
@@ -215,82 +122,6 @@ function App() {
 
   function getFullLanguageCode(languageCode) {
     return FULL_LANGUAGES_CODES[languageCode] ?? DEFAULT_SOURCE_LANGUAGE;
-  }
-
-  const micButtonRef = useRef(null);
-
-  async function startVoiceRecognition() {
-    const hasNativeRecognitionSupport =
-      "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
-
-    if (!hasNativeRecognitionSupport) return;
-
-    const recognition = new (SpeechRecognition || webkitSpeechRecognition)();
-
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    const language =
-      sourceLanguage === "auto" ? await detectLanguage(input) : sourceLanguage;
-
-    recognition.lang = getFullLanguageCode(language);
-
-    recognition.onaudiostart = () => {
-      console.log("working");
-      micButtonRef.current.style.backgroundColor = "var(--google-red)";
-      micButtonRef.current.style.color = "white";
-    };
-
-    recognition.onaudioend = () => {
-      micButtonRef.current.style.backgroundColor = "";
-      micButtonRef.current.style.color = "";
-    };
-
-    recognition.onresult = (event) => {
-      console.log(event.results);
-      const [{ transcript }] = event.results[0];
-      setInput(transcript);
-      translate(transcript, sourceLanguage, targetLanguage);
-    };
-
-    recognition.onnomatch = () => {
-      console.error("Speech not recognized");
-    };
-
-    recognition.onerror = (event) => {
-      console.log("Error de reconocimiento de voz", event.error);
-    };
-
-    recognition.start();
-  }
-  const speakerBtn = useRef(null);
-  function speakRecognition() {
-    console.log("working");
-    const hasNativeSuportSynthesis = "SpeechSynthesis" in window;
-    if (!hasNativeSuportSynthesis) return;
-
-    const text = output;
-    if (!text) return;
-
-    //in case you want to change the default voice
-    const voices = speechSynthesis.getVoices();
-    console.log(voices);
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = getFullLanguageCode(targetLanguage);
-    utterance.rate = 0.9;
-
-    utterance.onstart = () => {
-      speakerBtn.current.style.backgroundColor = "var(--google-green)";
-      speakerBtn.current.style.color = "white";
-    };
-
-    utterance.onend = () => {
-      speakerBtn.current.style.backgroundColor = "";
-      speakerBtn.current.style.color = "";
-    };
-
-    window.speechSynthesis.speak(utterance);
   }
 
   async function handleCopyButton() {
