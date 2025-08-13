@@ -10,6 +10,7 @@ function App() {
   console.log("render del componente");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+  const [copyText, setCopyText] = useState("");
 
   const DEFAULT_SOURCE_LANGUAGE = "es";
   const DEFAULT_TARGET_LANGUAGE = "en";
@@ -262,10 +263,48 @@ function App() {
 
     recognition.start();
   }
+  const speakerBtn = useRef(null);
+  function speakRecognition() {
+    console.log("working");
+    const hasNativeSuportSynthesis = "SpeechSynthesis" in window;
+    if (!hasNativeSuportSynthesis) return;
 
-  function handleCopyButton() {}
+    const text = output;
+    if (!text) return;
 
-  function speakRecognition() {}
+    //in case you want to change the default voice
+    const voices = speechSynthesis.getVoices();
+    console.log(voices);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = getFullLanguageCode(targetLanguage);
+    utterance.rate = 0.9;
+
+    utterance.onstart = () => {
+      speakerBtn.current.style.backgroundColor = "var(--google-green)";
+      speakerBtn.current.style.color = "white";
+    };
+
+    utterance.onend = () => {
+      speakerBtn.current.style.backgroundColor = "";
+      speakerBtn.current.style.color = "";
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function handleCopyButton() {
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopyText("Copiado");
+      setTimeout(() => {
+        setCopyText(" ");
+      }, 1000);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <>
       <div className='container'>
@@ -381,13 +420,14 @@ function App() {
                   <span className='material-symbols-outlined'>
                     <ContentCopyIcon />
                   </span>
-                  <p id='copyText'></p>
+                  <p id='copyText'>{copyText}</p>
                 </button>
 
                 <button
                   className='icon-button speaker-button'
                   id='speakerButton'
                   onClick={speakRecognition}
+                  ref={speakerBtn}
                 >
                   <span className='material-symbols-outlined'>
                     <VolumeUpIcon />
