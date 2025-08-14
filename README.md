@@ -1,4 +1,4 @@
-This Google Translator was inspired by the developer Midudev who made it with Vanilla JS. I rewrote it in React.
+This Google Translator was inspired by the developer Midudev who made it with Vanilla JS. I rewrote it in React. <br>
 🛑Attention: It uses an AI API that is not yet supported and/or verified by some browsers and may vary depending on your geographical location.
 
 
