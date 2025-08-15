@@ -20,15 +20,23 @@ function App() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [copyText, setCopyText] = useState("");
+  const [detectedLanguage, setDetectedLanguage] = useState(null);
 
-  let [sourceLanguage, setSourceLanguage] = useState(DEFAULT_SOURCE_LANGUAGE);
+  let [sourceLanguage, setSourceLanguage] = useState("auto");
   let [targetLanguage, setTargetLanguage] = useState(DEFAULT_TARGET_LANGUAGE);
 
-  const { detectLanguage } = useDetectLanguage();
+  const { detectLanguage } = useDetectLanguage({ setSourceLanguage });
+  console.log(sourceLanguage);
+
+  function updateDetectedLanguage(lang) {
+    setDetectedLanguage(lang);
+    console.log(lang);
+  }
 
   const { translate } = useTraduccion({
     setOutput,
     sourceLanguage,
+    updateDetectedLanguage,
     detectLanguage,
     targetLanguage,
     input,
@@ -87,10 +95,10 @@ function App() {
 
   const timeoutId = useRef(null);
   const debounceTranslate = useCallback(
-    (text, source, target) => {
+    (text, sourceLanguage, targetLanguage) => {
       clearTimeout(timeoutId.current);
       timeoutId.current = setTimeout(() => {
-        translate(text, source, target);
+        translate(text, sourceLanguage, targetLanguage);
       }, 500);
     },
     [translate]
@@ -160,7 +168,11 @@ function App() {
               value={sourceLanguage}
               onChange={handleSelectSource}
             >
-              <option value='auto'>Detectar idioma</option>
+              <option value='auto'>
+                {detectedLanguage
+                  ? `Detectar idioma (${detectedLanguage})`
+                  : "Detectar idioma"}
+              </option>
               <option value='en'>Inglés</option>
               <option value='es'>Español</option>
               <option value='fr'>Francés</option>

@@ -5,6 +5,7 @@ export default function useTraduccion({
   sourceLanguage,
   detectLanguage,
   targetLanguage,
+  updateDetectedLanguage,
   input,
 }) {
   const currentTranslatorKey = useRef(null);
@@ -14,25 +15,27 @@ export default function useTraduccion({
     const sourceLanguageDetect =
       source === "auto" ? await detectLanguage(text) : source;
 
-    console.log(target);
-
     if (sourceLanguageDetect === target) return text;
 
     try {
       const status = await window.Translator.availability({
-        sourceLanguage: source,
+        sourceLanguage: sourceLanguageDetect,
         targetLanguage: target,
       });
 
       if (status === "unavailable") {
-        throw new Error(`Traducción de ${source} a ${target} no disponible`);
+        throw new Error(
+          `Traducción de ${sourceLanguageDetect} a ${target} no disponible`
+        );
       }
     } catch (error) {
       console.error(error);
-      throw new Error(`Traducción de ${source} a ${target} no disponible`);
+      throw new Error(
+        `Traducción de ${sourceLanguageDetect} a ${target} no disponible`
+      );
     }
 
-    const translatorKey = `${source} - ${target}`;
+    const translatorKey = `${sourceLanguageDetect} - ${target}`;
     console.log(translatorKey);
     try {
       if (
@@ -40,7 +43,7 @@ export default function useTraduccion({
         currentTranslatorKey.current !== translatorKey
       ) {
         currentTranslator.current = await window.Translator.create({
-          sourceLanguage: source,
+          sourceLanguage: sourceLanguageDetect,
           targetLanguage: target,
 
           monitor: (monitor) => {
@@ -70,13 +73,13 @@ export default function useTraduccion({
       }
       setOutput("Traduciendo...");
 
-      let sourceToUse = source;
-      if (sourceLanguage === "auto") {
-        sourceToUse = await detectLanguage(text);
+      if (source === "auto") {
+        const detectedLanguage = await detectLanguage(text);
+        updateDetectedLanguage(detectedLanguage);
       }
 
       try {
-        const translation = await getTranslation(text, sourceToUse, target);
+        const translation = await getTranslation(text, source, target);
         setOutput(translation);
       } catch (error) {
         console.error(error);
